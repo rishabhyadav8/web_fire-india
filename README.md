@@ -88,3 +88,17 @@ This project is built as a pure client-side SPA with Vite and React, making depl
    - **Output Directory**: `dist`
    - **Install Command**: `npm install`
 5. Click **"Deploy"**. Your game will be live in under a minute!
+
+---
+
+## 🔒 Fixing "Vercel Account / Access Request" Login Screen
+
+If your live URL asks visitors to log in with Vercel or request access, Vercel's **Deployment Protection** is enabled by default on your account. To make it publicly playable for everyone:
+
+1. Open your project on [vercel.com](https://vercel.com).
+2. Go to **Settings** (top navigation tab).
+3. In the left menu, select **Deployment Protection**.
+4. Find **Vercel Authentication**.
+5. Toggle or set it to **Disabled** (turn off for Preview and Production).
+6. Click **Save**.
+7. Share your main production link (e.g., `https://your-project.vercel.app`). Anyone can now open and play immediately without needing an account!

@@ -90,19 +90,33 @@ export const Minimap: React.FC<MinimapProps> = ({
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // 3. Nearby Bots (Red dots if within radar range)
+    // 3. All Living Bots (Radar markers with edge clamping and pulsing halo)
     bots.forEach((bot) => {
       if (bot.state === 'DEAD') return;
-      const bx = half + (bot.x - playerX) * scale;
-      const bz = half + (bot.z - playerZ) * scale;
+      let bx = half + (bot.x - playerX) * scale;
+      let bz = half + (bot.z - playerZ) * scale;
 
-      const dsq = (bx - half) ** 2 + (bz - half) ** 2;
-      if (dsq <= (half - 5) ** 2) {
-        ctx.fillStyle = bot.state === 'ATTACK' ? '#ef4444' : 'rgba(239, 68, 68, 0.7)';
-        ctx.beginPath();
-        ctx.arc(bx, bz, bot.state === 'ATTACK' ? 3.5 : 2.5, 0, Math.PI * 2);
-        ctx.fill();
+      const dx = bx - half;
+      const dz = bz - half;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      const maxR = half - 8;
+      if (dist > maxR) {
+        bx = half + (dx / dist) * maxR;
+        bz = half + (dz / dist) * maxR;
       }
+
+      // Enemy dot
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.arc(bx, bz, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Glowing threat halo
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(bx, bz, 6, 0, Math.PI * 2);
+      ctx.stroke();
     });
 
     // 4. Player icon in center (Bright triangle facing yaw)

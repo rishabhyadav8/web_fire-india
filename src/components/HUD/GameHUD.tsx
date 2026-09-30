@@ -102,9 +102,16 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           </div>
 
           {/* God mode status badge */}
-          <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-500/20 border border-amber-400/60 rounded-lg text-amber-300 text-[11px] font-bold tracking-wider shadow-md w-fit font-game animate-pulse">
-            <Zap className="w-3.5 h-3.5 text-amber-400" />
-            <span>GOD MODE: INVINCIBLE • 1-HIT KILL</span>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-500/20 border border-amber-400/60 rounded-lg text-amber-300 text-[11px] font-bold tracking-wider shadow-md w-fit font-game animate-pulse">
+              <Zap className="w-3.5 h-3.5 text-amber-400" />
+              <span>ANNIHILATOR MODE: 1-SHOT MASS WIPE OUT ALL • IMMORTAL</span>
+            </div>
+            {stats.aliveCount > 1 && (
+              <div className="text-[10px] text-cyan-300 font-bold bg-cyan-950/60 border border-cyan-800/60 px-2.5 py-0.5 rounded w-fit">
+                🎯 1 Shot Eliminates All {stats.aliveCount - 1} Remaining Enemies & Claims Victory!
+              </div>
+            )}
           </div>
         </div>
 

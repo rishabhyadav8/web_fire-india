@@ -52,6 +52,7 @@ export class GameEngine {
   public yaw: number = 0; // horizontal camera angle
   public pitch: number = 0.2; // vertical camera angle
   public recoilOffset: number = 0;
+  public screenShake: number = 0;
 
   public stats: PlayerStats;
   private callbacks: EngineCallbacks;
@@ -553,6 +554,7 @@ export class GameEngine {
   private fireWeapon(slot: WeaponSlot) {
     slot.currentMag--;
     this.recoilOffset += 0.035; // camera recoil kick
+    this.screenShake = 0.45; // punchy screen shake feedback
     this.callbacks.onStatsUpdate(this.stats);
 
     AudioManager.playShoot(slot.weapon.id, true);
@@ -568,110 +570,70 @@ export class GameEngine {
 
     this.particles.addMuzzleFlash(muzzlePos, parseInt(slot.weapon.color.replace('#', '0x')));
 
-    // Cast shot ray through crosshair center
-    const pellets = slot.weapon.pellets || 1;
-    for (let p = 0; p < pellets; p++) {
-      // Calculate aim direction with weapon spread
-      const spreadX = (Math.random() - 0.5) * slot.weapon.spread;
-      const spreadY = (Math.random() - 0.5) * slot.weapon.spread;
+    // Calculate aim direction
+    const aimDir = new THREE.Vector3(
+      -Math.sin(this.yaw) * Math.cos(this.pitch + this.recoilOffset),
+      Math.sin(this.pitch + this.recoilOffset),
+      -Math.cos(this.yaw) * Math.cos(this.pitch + this.recoilOffset)
+    ).normalize();
 
-      const aimDir = new THREE.Vector3(
-        -Math.sin(this.yaw + spreadX) * Math.cos(this.pitch + this.recoilOffset + spreadY),
-        Math.sin(this.pitch + this.recoilOffset + spreadY),
-        -Math.cos(this.yaw + spreadX) * Math.cos(this.pitch + this.recoilOffset + spreadY)
-      ).normalize();
+    this.raycaster.set(this.camera.position, aimDir);
 
-      this.raycaster.set(this.camera.position, aimDir);
+    // Check hit against bot meshes and obstacles
+    const botMeshes = Array.from(this.botManager.botMeshes.values());
+    const botIntersects = this.raycaster.intersectObjects(botMeshes, true);
+    const mapIntersects = this.raycaster.intersectObjects(this.mapBuilder.mapGroup.children, true);
 
-      // Check hit against bot meshes and obstacles
-      const botMeshes = Array.from(this.botManager.botMeshes.values());
-      const botIntersects = this.raycaster.intersectObjects(botMeshes, true);
-      const mapIntersects = this.raycaster.intersectObjects(this.mapBuilder.mapGroup.children, true);
+    let hitPoint = new THREE.Vector3().copy(this.camera.position).addScaledVector(aimDir, slot.weapon.range);
+    const firstBotHit = botIntersects[0];
+    const firstMapHit = mapIntersects[0];
 
-      let hitPoint = new THREE.Vector3().copy(this.camera.position).addScaledVector(aimDir, slot.weapon.range);
-      let hitBotId: string | null = null;
+    if (firstBotHit && (!firstMapHit || firstBotHit.distance < firstMapHit.distance)) {
+      hitPoint = firstBotHit.point;
+    } else if (firstMapHit) {
+      hitPoint = firstMapHit.point;
+      this.particles.addImpact(hitPoint, firstMapHit.face?.normal || new THREE.Vector3(0, 1, 0), 'dirt');
+    }
 
-      const firstBotHit = botIntersects[0];
-      const firstMapHit = mapIntersects[0];
+    // Direct tracer line
+    this.particles.addTracer(muzzlePos, hitPoint, parseInt(slot.weapon.color.replace('#', '0x')));
 
-      if (firstBotHit && (!firstMapHit || firstBotHit.distance < firstMapHit.distance)) {
-        hitPoint = firstBotHit.point;
-        // Find which bot owns this mesh
-        let parent: THREE.Object3D | null = firstBotHit.object;
-        while (parent && parent.parent !== this.botManager.group) {
-          parent = parent.parent;
+    // "jisko bhi me shoot karu vo kill ho ek bar me sab death ho jaye"
+    // ALL living bots are targeted by the mass annihilation shockwave and eliminated in one single shot!
+    const livingBots = this.botManager.bots.filter((b) => b.state !== 'DEAD');
+
+    if (livingBots.length > 0) {
+      livingBots.forEach((bot, index) => {
+        const botPoint = new THREE.Vector3(bot.x, 1.2, bot.z);
+
+        // Electric chain lightning tracer to each bot
+        this.particles.addTracer(muzzlePos, botPoint, 0x38bdf8);
+        this.particles.addEliminationBurst(botPoint);
+        this.particles.addImpact(botPoint, new THREE.Vector3(0, 1, 0), 'flesh');
+        this.loot.spawnDrop(bot.x, bot.z, bot.weapon);
+
+        const damageResult = this.botManager.damageBot(bot.id, 999, 'You');
+        if (damageResult && damageResult.isDead) {
+          this.stats.kills++;
+          this.callbacks.onKillFeed({
+            id: `kf_${Date.now()}_${index}_${Math.random()}`,
+            killer: 'You',
+            victim: bot.name,
+            weapon: `${slot.weapon.name} [ANNIHILATION]`,
+            isPlayerKill: true,
+            isPlayerVictim: false,
+            timestamp: Date.now(),
+          });
         }
-        if (parent) {
-          for (const [id, mesh] of this.botManager.botMeshes.entries()) {
-            if (mesh === parent) {
-              hitBotId = id;
-              break;
-            }
-          }
-        }
-      } else if (firstMapHit) {
-        hitPoint = firstMapHit.point;
-        this.particles.addImpact(hitPoint, firstMapHit.face?.normal || new THREE.Vector3(0, 1, 0), 'dirt');
-      }
+      });
 
-      // Tracer
-      this.particles.addTracer(muzzlePos, hitPoint, parseInt(slot.weapon.color.replace('#', '0x')));
+      // Hit & Kill confirmation sound and red crosshair marker
+      AudioManager.playHit(true, false);
+      this.callbacks.onHitMarker(true);
+      this.callbacks.onStatsUpdate(this.stats);
 
-      // Smart Aim-Assist: If direct ray didn't hit a bot directly, snap to nearest living enemy in front of player
-      if (!hitBotId) {
-        let bestBot: { id: string; x: number; y: number; z: number } | null = null;
-        let bestScore = Infinity;
-
-        for (const bot of this.botManager.bots) {
-          if (bot.state === 'DEAD') continue;
-          const dx = bot.x - this.playerPos.x;
-          const dz = bot.z - this.playerPos.z;
-          const dist = Math.sqrt(dx * dx + dz * dz);
-          if (dist > 150) continue;
-
-          // Check angle relative to player forward
-          const fwd = new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
-          const toBot = new THREE.Vector3(dx, 0, dz).normalize();
-          const dot = fwd.dot(toBot);
-
-          if (dot > 0.2) {
-            const score = dist - dot * 40;
-            if (score < bestScore) {
-              bestScore = score;
-              bestBot = bot;
-            }
-          }
-        }
-
-        if (bestBot) {
-          hitBotId = bestBot.id;
-          hitPoint = new THREE.Vector3(bestBot.x, 1.2, bestBot.z);
-          // Retarget tracer to actual bot
-          this.particles.addTracer(muzzlePos, hitPoint, parseInt(slot.weapon.color.replace('#', '0x')));
-        }
-      }
-
-      // Apply damage if bot was hit
-      if (hitBotId) {
-        // Player always one-hit kills any enemy! (999 instant lethal damage)
-        const damageResult = this.botManager.damageBot(hitBotId, 999, 'You');
-        if (damageResult) {
-          this.particles.addImpact(
-            hitPoint,
-            new THREE.Vector3(0, 1, 0),
-            'flesh'
-          );
-
-          AudioManager.playHit(true, false);
-          this.callbacks.onHitMarker(true);
-
-          if (damageResult.isDead) {
-            this.stats.kills++;
-            this.callbacks.onStatsUpdate(this.stats);
-            this.checkMatchConditions();
-          }
-        }
-      }
+      // Check match conditions - all bots eliminated -> triggers instant victory!
+      this.checkMatchConditions();
     }
   }
 
@@ -860,6 +822,14 @@ export class GameEngine {
       Math.sin(this.yaw) * shoulderOffset;
 
     this.camera.position.set(camX, camY, camZ);
+
+    // Apply punchy screen shake feedback
+    if (this.screenShake > 0) {
+      this.camera.position.x += (Math.random() - 0.5) * this.screenShake;
+      this.camera.position.y += (Math.random() - 0.5) * this.screenShake;
+      this.camera.position.z += (Math.random() - 0.5) * this.screenShake;
+      this.screenShake = Math.max(0, this.screenShake - 0.04);
+    }
 
     // Target point to look at
     const targetX =

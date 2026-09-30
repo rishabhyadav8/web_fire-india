@@ -155,6 +155,65 @@ export class ParticleSystem {
     }
   }
 
+  // Expanding plasma shockwave ring
+  public addShockwave(position: THREE.Vector3, color: number = 0x38bdf8) {
+    const ringGeo = new THREE.RingGeometry(0.5, 1.2, 32);
+    ringGeo.rotateX(-Math.PI / 2);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.9,
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.position.copy(position);
+    ring.position.y += 0.2;
+    this.group.add(ring);
+
+    // Expand ring rapidly
+    let scale = 1;
+    let opacity = 0.9;
+    const interval = setInterval(() => {
+      scale += 3.5;
+      opacity -= 0.08;
+      ring.scale.set(scale, scale, scale);
+      ringMat.opacity = Math.max(0, opacity);
+      if (opacity <= 0) {
+        clearInterval(interval);
+        this.group.remove(ring);
+        ringGeo.dispose();
+        ringMat.dispose();
+      }
+    }, 16);
+  }
+
+  // Heavenly orbital lightning strike column
+  public addOrbitalBeam(position: THREE.Vector3, color: number = 0xf59e0b) {
+    const beamGeo = new THREE.CylinderGeometry(1.5, 3.0, 100, 16);
+    const beamMat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.85,
+    });
+    const beam = new THREE.Mesh(beamGeo, beamMat);
+    beam.position.set(position.x, 50, position.z);
+    this.group.add(beam);
+
+    let op = 0.85;
+    const fade = setInterval(() => {
+      op -= 0.07;
+      beamMat.opacity = Math.max(0, op);
+      beam.scale.x *= 1.1;
+      beam.scale.z *= 1.1;
+      if (op <= 0) {
+        clearInterval(fade);
+        this.group.remove(beam);
+        beamGeo.dispose();
+        beamMat.dispose();
+      }
+    }, 20);
+  }
+
   public clear() {
     for (const p of this.particles) {
       this.group.remove(p.mesh);

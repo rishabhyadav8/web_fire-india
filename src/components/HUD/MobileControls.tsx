@@ -216,10 +216,10 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
             }}
             onMouseDown={() => engine?.input.triggerMobileShoot(true)}
             onMouseUp={() => engine?.input.triggerMobileShoot(false)}
-            className="w-20 h-20 rounded-full bg-gradient-to-tr from-red-600 to-orange-500 border-2 border-white/50 text-white flex flex-col items-center justify-center active:scale-95 shadow-xl shadow-red-950/50"
+            className="w-20 h-20 rounded-full bg-gradient-to-tr from-amber-500 via-orange-500 to-red-600 border-2 border-yellow-300 text-white flex flex-col items-center justify-center active:scale-95 shadow-xl shadow-red-950/60 animate-pulse"
           >
             <Crosshair className="w-8 h-8 text-white drop-shadow" />
-            <span className="text-[10px] font-extrabold tracking-wider">FIRE</span>
+            <span className="text-[10px] font-black tracking-wider text-yellow-100">WIPE ALL</span>
           </button>
         </div>
       </div>
