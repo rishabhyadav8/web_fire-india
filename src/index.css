@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+@layer base {
+  * {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  html, body, #root {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    touch-action: none;
+    font-family: 'Chakra Petch', 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+.font-game {
+  font-family: 'Chakra Petch', monospace, sans-serif;
+}
+
+/* Battle royale vignette & damage vignette */
+.damage-overlay {
+  box-shadow: inset 0 0 100px rgba(239, 68, 68, 0.6);
+  animation: pulse-damage 0.3s ease-out;
+}
+
+.zone-overlay {
+  box-shadow: inset 0 0 120px rgba(59, 130, 246, 0.5);
+  animation: pulse-zone 1.5s infinite alternate ease-in-out;
+}
+
+@keyframes pulse-damage {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes pulse-zone {
+  0% { opacity: 0.4; }
+  100% { opacity: 0.85; }
+}
+
+/* Custom scrollbars hidden */
+::-webkit-scrollbar {
+  display: none;
+}

@@ -1,0 +1,6 @@
+{
+  "name": "LAST ZONE - 3D Battle Royale",
+  "description": "Fast-paced 3D browser battle royale. Drop in, loot weapons, outsmart AI survivors, and stay inside the shrinking safe zone to be the last one standing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
